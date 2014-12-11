@@ -1,0 +1,121 @@
+USE [RTT]
+GO
+
+/****** Object:  View [dbo].[vw_RTT_WIP_without_Clock_Pauses]    Script Date: 11/12/2014 13:36:52 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+CREATE VIEW [dbo].[vw_RTT_WIP_without_Clock_Pauses]
+AS
+
+SELECT  'RBHPRD' AS Domain
+		,p.PERSON_ID
+		,p.NAME_LAST AS Surname
+		,p.NAME_FIRST AS Forenames
+		,p.BIRTH_DT_TM
+		,p.DECEASED_DT_TM
+		,ep.EPISODE_ID
+		,ea.EPISODE_ACTIVITY_ID
+		,panhs.ALIAS AS NHSNumber
+	    ,palias.ALIAS AS MRN
+		,REPLICATE('0', 9 - LEN(palias.ALIAS)) + palias.ALIAS AS LocalPatientID
+		,PathwayIDSource=REPLACE(case when ASCII(right(ep.DISPLAY,1))=0 then left(ep.DISPLAY,len(ep.DISPLAY)-1)
+									  else ep.Display
+								 end,
+								 '.','')
+		,PathwayID = ISNULL(REPLICATE('0', 20 - LEN(replace(
+												case 
+													when ASCII(right(ep.DISPLAY,1))=0 then left(ep.DISPLAY,len(ep.DISPLAY)-1)
+													else ep.Display
+													end,
+												'.',''))),'') + REPLACE(
+												case 
+													when ASCII(right(ep.DISPLAY,1))=0 then left(ep.DISPLAY,len(ep.DISPLAY)-1)
+													else ep.Display
+													end,
+												'.','') 
+		,ea.CREATED_BY_ENCNTR_ID AS ENCNTR_ID
+		,ea.CREATED_BY_SCHEDULE_ID AS SCHEDULE_ID
+		,ep.EPISODE_START_DT_TM AS ClockStartDate
+		,ea.ACTIVITY_CD AS ActionCode
+		,cvca.DESCRIPTION AS Action
+		,ea.EPISODE_STATUS_CD AS RTTStatusCode
+		,cvrstat.DESCRIPTION AS RTTStatus
+		,ea.ACTIVITY_DT_TM AS RTTStatusDateTime
+		,ea.ACTIVITY_TYPE_CD AS RTTClockActionTypeCode
+		,cvat.DESCRIPTION AS RTTClockActionType
+		,eacs.EPISODE_STATUS_CD AS RTTClockStopStatusCode
+		,cvcss.DESCRIPTION AS RTTClockStopStatus
+		,eacs.ACTIVITY_DT_TM AS RTTClockStopDateTime
+		--,eacp.EPISODE_PAUSE_DAYS_CNT AS RTTClockPauseDays
+		,enc.CREATE_DT_TM AS EncounterCreateDate
+		,ea.UPDT_DT_TM AS EditDate
+		,ep.EPISODE_START_DT_TM AS EpisodeStart_DtTm
+		,ep.EPISODE_STOP_DT_TM AS EpisodeStop_DtTm
+		,ep.EPISODE_BREACH_DT_TM AS EpisodeBreach_DtTm
+		,eaenc.REFERRAL_RCVD_DT_TM AS ReferralReceived_DtTm
+		,eaenc.ENCNTR_COMPLETE_DT_TM AS EncounterCompleted_DtTm
+		,enc.CREATE_PRSNL_ID AS CreatedByCode
+		,pedit.NAME_FULL_FORMATTED AS CreatedBy
+		,ea.UPDT_ID AS UpdatedByCode
+		,pupd.NAME_FULL_FORMATTED AS UpdatedBy
+		,eaenc.SPECIALTY_CD AS SpecialtyCode
+		,eaenc.SPECIALTY
+		,eaenc.LOC_BUILDING_CD AS SiteCode
+		,eaenc.LOC_BUILDING AS Site
+		,o.ALIAS AS GPPractice
+		,eaenc.LOC_NURSE_UNIT_CD AS LocationNurseUnitCode
+		,eaenc.LOC_NURSE_UNIT AS LocationNurseUnit
+		,eaenc.ENCNTR_CLASS_CD AS EncounterClassCode
+		,eaenc.ENCNTR_CLASS AS EncounterClass
+		,eaenc.ENCNTR_TYPE_CD AS EncounterTypeCode
+		,eaenc.ENCNTR_TYPE AS EncounterType
+		,eaenc.ENCNTR_TYPE_CLASS_CD AS EncounterTypeClassCode
+		,eaenc.ENCNTR_TYPE_CLASS AS EncounterTypeClass
+		,eaenc.ENCNTR_STATUS_CD AS EncounterStatusCode
+		,eaenc.ENCNTR_STATUS AS EncounterStatus
+		,eaenc.ADMIT_SRC_CD AS AdmissionSourceCode
+		,eaenc.ADMIT_SRC AS AdmissionSource
+		,eaenc.ADMIT_MODE_CD AS AdmissionMethodCode
+		,eaenc.ADMIT_MODE AS AdmissionMethod
+		,eaenc.DISCH_DISPOSITION_CD AS DischargeMethodCode
+		,eaenc.DISCH_DISPOSITION AS DischargeMethod
+		,eaenc.DISCH_TO_LOCTN_CD AS DischargeDestinationCode
+		,eaenc.DISCH_TO_LOCTN AS DischargeDestination
+		,eaenc.MED_SERVICE_CD AS MedicalServicesCode
+		,eaenc.MED_SERVICE AS MedicalServices
+		,eaenc.REASON_FOR_VISIT AS VisitReason
+		,eaenc.SERVICE_CATEGORY_CD AS ServiceCategoryCode
+		,eaenc.SERVICE_CATEGORY AS ServiceCategory
+		,eaenc.PATIENT_CLASSIFICATION_CD AS PatientClassificationCode
+		,eaenc.PATIENT_CLASSIFICATION_CD AS PatientClassification
+
+FROM	CernerBulk.dbo.vw_CODE_VALUE AS cvrstat 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_CODE_VALUE AS cvat 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_ENCOUNTER_DECODE AS eaenc 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_CODE_VALUE AS cvca 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_EPISODE_ACTIVITY AS ea ON cvca.CODE_VALUE = ea.ACTIVITY_CD 
+		LEFT OUTER JOIN  CernerBulk.dbo.vw_PERSON AS pupd ON ea.UPDT_ID = pupd.PERSON_ID 
+														  ON eaenc.ENCNTR_ID = ea.CREATED_BY_ENCNTR_ID 
+														  ON cvat.CODE_VALUE = ea.ACTIVITY_TYPE_CD 
+														  ON cvrstat.CODE_VALUE = ea.EPISODE_STATUS_CD 
+		--LEFT OUTER JOIN CernerBulk.dbo.vw_EPISODE_ACTIVITY_CLOCKPAUSE AS eacp ON ea.EPISODE_ID = eacp.EPISODE_ID 
+		LEFT OUTER JOIN CernerBulk.dbo.vw_CODE_VALUE AS cvcss 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_EPISODE_ACTIVITY_CLOCKSTOP AS eacs ON cvcss.CODE_VALUE = eacs.EPISODE_STATUS_CD 
+																			ON ea.EPISODE_ACTIVITY_ID = eacs.EPISODE_ACTIVITY_ID 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_PERSON AS pedit 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_EPISODE AS ep 
+		LEFT OUTER JOIN CernerBulk.dbo.vw_PERSON AS p ON ep.PERSON_ID = p.PERSON_ID 
+		LEFT OUTER JOIN	CernerBulk.dbo.vw_PERSON_ALIAS_NHSNUMBER AS panhs ON p.PERSON_ID = panhs.PERSON_ID 
+		LEFT OUTER JOIN CernerBulk.dbo.vw_EPISODE_ENCNTR_RELTN_FIRSTENCOUNTER AS eencrel ON ep.EPISODE_ID = eencrel.EPISODE_ID			LEFT OUTER JOIN	CernerBulk.dbo.vw_ENCOUNTER AS enc ON eencrel.ENCNTR_ID = enc.ENCNTR_ID 
+		LEFT OUTER JOIN CernerBulk.dbo.vw_CODE_VALUE AS cvl ON enc.LOC_NURSE_UNIT_CD = cvl.CODE_VALUE
+															ON pedit.PERSON_ID = enc.CREATE_PRSNL_ID 
+		LEFT OUTER JOIN CernerBulk.dbo.vw_PERSON_ORG_RELTN_GP_ACTIVE AS porel 
+		LEFT OUTER JOIN	CernerBulk.dbo.vw_ORGANIZATION_ALIAS_GP AS o ON porel.ORGANIZATION_ID = o.ORGANIZATION_ID 
+		RIGHT OUTER JOIN CernerBulk.dbo.vw_PERSON_ALIAS_MRN AS palias ON porel.PERSON_ID = palias.PERSON_ID 
+																	  ON p.PERSON_ID = porel.PERSON_ID 
+																	  ON ea.EPISODE_ID = ep.EPISODE_ID
